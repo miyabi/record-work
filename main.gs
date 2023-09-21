@@ -1,3 +1,5 @@
+const defaultSpreadsheetId = '';
+
 const defaultTimeZone = 'JST';
 const defaultBreakTime = 1;
 
@@ -59,7 +61,7 @@ function doGet(e) {
 }
 
 function recordWork(params) {
-  const { spreadsheetId, mode, timeZone = defaultTimeZone, breakTime = defaultBreakTime } = params;
+  const { spreadsheetId = defaultSpreadsheetId, mode, timeZone = defaultTimeZone, breakTime = defaultBreakTime } = params;
   const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
 
   const now = new Date();

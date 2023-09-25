@@ -13,15 +13,28 @@ function main() {
 }
 
 function test() {
-  doPost({
-    postData : {
-      getDataAsString: () => '{ "mode": "start" }',
-    },
-  });
 }
 
 function doPost(e) {
-const params = JSON.parse(e.postData.getDataAsString());
+  const params = JSON.parse(e.postData.getDataAsString());
+
+  const output = processRequest(params);
+
+  return output;
+}
+
+function doGet(e) {
+  const params = e.parameter;
+
+  const output = processRequest(params);
+
+  return output;
+}
+
+function processRequest(params) {
+  if (params.mode === 'get') {
+    return getRecords(params);
+  }
 
   let result = 'Failed';
   try {
@@ -40,22 +53,35 @@ const params = JSON.parse(e.postData.getDataAsString());
   return output;
 }
 
-function doGet(e) {
-  const params = e.parameter;
-
-  let result = 'Failed';
+function getRecords(params) {
+  const result = {};
   try {
-    if (recordWork(params)) {
-      result = 'Succeeded';
+    const { spreadsheetId = defaultSpreadsheetId, year, month } = params;
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheetName = formatDate(year, month);
+    const sheet = spreadsheet.getSheetByName(sheetName);
+    if (sheet !== null) {
+      const range = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn());
+      result.values = range.getValues().map((row) => {
+        return row.map((cell) => {
+          if (cell instanceof Date) {
+            const date = new Date(cell);
+            return formatTime(date.getHours(), date.getMinutes());
+          }
+          return cell.toString();
+        });
+      });
+    } else {
+      result.values = [];
     }
   } catch (e) {
     Logger.log(e);
-    result = `Error: ${e.message}`;
+    result.error = e.message;
   }
 
   const output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.TEXT);
-  output.setContent(result);
+  output.setMimeType(ContentService.MimeType.JSON);
+  output.setContent(JSON.stringify(result));
 
   return output;
 }
@@ -67,7 +93,7 @@ function recordWork(params) {
   const now = new Date();
   const { year, month } = parseDate(now, timeZone);
 
-  const sheetName = `${year}/${(month < 10 ? '0' : '')}${month}`;
+  const sheetName = formatDate(year, month);
   let sheet = spreadsheet.getSheetByName(sheetName);
 
   if (mode === 'start') {
@@ -86,6 +112,14 @@ function recordWork(params) {
   return false;
 }
 
+function formatDate(year, month) {
+  return `${year}/${(month < 10 ? '0' : '')}${month}`;
+}
+
+function formatTime(hour, minute) {
+  return `${hour}:${(minute < 10 ? '0' : '')}${minute}`;
+}
+
 function parseDate(date, timeZone) {
   const components = Utilities.formatDate(date, timeZone, 'yyyy MM dd HH mm').split(' ');
 
@@ -96,7 +130,7 @@ function parseDate(date, timeZone) {
   let minute = Math.round(parseInt(components[4]) / 15) * 15;
   hour += Math.floor(minute / 60);
   minute = minute % 60;
-  const time = `${hour}:${(minute < 10 ? '0' : '')}${minute}`;
+  const time = formatTime(hour, minute);
 
   return { year, month, day, hour, minute, time };
 }
@@ -123,5 +157,5 @@ function recordEndTime(sheet, date, timeZone, breakTime = defaultBreakTime) {
   const minutes = Math.round((breakTime - hours) * 60);
 
   const range = sheet.getRange(day, endCol, 1, 2);
-  range.setValues([[time, `${hours}:${(minutes < 10 ? '0' : '')}${minutes}`]]);
+  range.setValues([[time, formatTime(hours, minutes)]]);
 }

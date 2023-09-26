@@ -56,7 +56,7 @@ function processRequest(params) {
 function getRecords(params) {
   const result = {};
   try {
-    const { spreadsheetId = defaultSpreadsheetId, year, month } = params;
+    const { spreadsheetId = defaultSpreadsheetId, year, month, timeZone = defaultTimeZone } = params;
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     const sheetName = formatDate(year, month);
     const sheet = spreadsheet.getSheetByName(sheetName);
@@ -65,8 +65,8 @@ function getRecords(params) {
       result.values = range.getValues().map((row) => {
         return row.map((cell) => {
           if (cell instanceof Date) {
-            const date = new Date(cell);
-            return formatTime(date.getHours(), date.getMinutes());
+            const { time } = parseDate(cell, timeZone);
+            return time;
           }
           return cell.toString();
         });
